@@ -3,8 +3,6 @@
 
 // // Find your Account SID and Auth Token at twilio.com/console
 // // and set the environment variables. See http://twil.io/secure
-// const accountSid = 'AC8bb6c7b29ad42fb9136d126149b2835a';
-// const authToken = '191c2ea6315a5d2e27b7acec739d22ed';
 
 // async function createCall() {
 
@@ -55,8 +53,6 @@
 // const PORT = 3000;
 
 // // Twilio creds
-// const accountSid = "AC8bb6c7b29ad42fb9136d126149b2835a";
-// const client = twilio(accountSid, authToken);
 
 // // Webhook endpoint (TwiML response)
 // app.post("/voice", (req, res) => {
