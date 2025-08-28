@@ -156,7 +156,7 @@ const app = express();
 app.use(express.urlencoded({ extended: true}));
 app.use(express.json({limit : '50kb'}));
 app.use(cors({
-    origin: 'http://crm.nextsoftech.co',
+    origin: 'https://crm.nextsoftech.co',
 }));
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
