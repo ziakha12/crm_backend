@@ -47,13 +47,36 @@ app.get("/token", (req, res) => {
 });
 
 
+let activeCallAccepted = false;
+
 app.post('/incoming', (req, res) => {
  const twiml = new twilio.twiml.VoiceResponse();
+
+    if (!activeCallAccepted) {
+        
   const dial = twiml.dial({ answerOnBridge: true, timeout: 30 });
   dial.client("support_agent");  // jis pe modal open karna hai
+  } else {
+    // If already accepted, reject new incoming connections
+    twiml.reject();
+  }
   res.type("text/xml");
   res.send(twiml.toString());
 })
+
+// API to mark call as accepted
+app.post("/accept-call", (req, res) => {
+  activeCallAccepted = true;
+  res.json({ status: "ok" });
+});
+
+// API to reset after disconnect
+app.post("/end-call", (req, res) => {
+  activeCallAccepted = false;
+  res.json({ status: "ended" });
+});
+
+
 app.post("/voice", (req, res) => {
   const toNumber = req.body.To;
   const fromNumber = req.body.From;
