@@ -8,7 +8,7 @@ const app = express()
 app.use(express.urlencoded({limit : '20kb', extended : true}))
 app.use(express.json({limit:'20kb'}))
 app.use(cors({
-    origin : 'https://crm.nextsoftech.co',
+    origin : ['https://crm.nextsoftech.co', 'http://localhost:3000', 'http://localhost:3001'],
     credentials : true
 }))
 app.use(cookieParser())
