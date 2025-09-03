@@ -1,18 +1,32 @@
 import express from "express";
-import cors from 'cors'
-import cookieParser from 'cookie-parser'
+import cors from "cors";
+import cookieParser from "cookie-parser";
 import twilio from "twilio";
 import cron from "node-cron";
+import { createServer } from "http";
+import { Server } from "socket.io";
 
-const app = express()
-app.use(express.urlencoded({limit : '20kb', extended : true}))
-app.use(express.json({limit:'20kb'}))
-app.use(cors({
-    origin : ['https://crm.nextsoftech.co', 'http://localhost:3000', 'http://localhost:3001'],
-    credentials : true
-}))
-app.use(cookieParser())
+const app = express();
+const httpServer = createServer(app); // socket.io ke liye
+const io = new Server(httpServer, {
+  cors: {
+    origin: ["https://crm.nextsoftech.co", "http://localhost:3000", "http://localhost:3001"],
+    credentials: true,
+  },
+});
 
+// Middlewares
+app.use(express.urlencoded({ limit: "20kb", extended: true }));
+app.use(express.json({ limit: "20kb" }));
+app.use(
+  cors({
+    origin: ["https://crm.nextsoftech.co", "http://localhost:3000", "http://localhost:3001"],
+    credentials: true,
+  })
+);
+app.use(cookieParser());
+
+// Twilio creds
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const apiKeySid = process.env.TWILIO_API_KEY_SID;
 const apiKeySecret = process.env.TWILIO_API_KEY_SECRET;
@@ -21,173 +35,150 @@ const phoneNumber = process.env.TWILIO_PHONE_NUMBER;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 
 const client = twilio(accountSid, authToken);
-console.log(twimlAppSid)
 
-
-console.log(phoneNumber);
-
-if (!accountSid || !apiKeySid || !apiKeySecret || !twimlAppSid ) {
-  console.error("Missing Twilio credentials in .env");
+if (!accountSid || !apiKeySid || !apiKeySecret || !twimlAppSid) {
+  console.error("❌ Missing Twilio credentials in .env");
   process.exit(1);
 }
 
+// ✅ Socket.IO events
+io.on("connection", (socket) => {
+  console.log("🔗 New client connected:", socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("❌ Client disconnected:", socket.id);
+  });
+});
+
+// ✅ Call states
+const activeCalls = {}; // { CallSid: { accepted: false } }
+
+// 🔹 Token API
 app.get("/token", (req, res) => {
   const AccessToken = twilio.jwt.AccessToken;
   const VoiceGrant = AccessToken.VoiceGrant;
-  const identity = 'support_agent'
-    const token = new AccessToken(accountSid, apiKeySid, apiKeySecret, { identity : identity });
+  const identity = "support_agent";
+
+  const token = new AccessToken(accountSid, apiKeySid, apiKeySecret, { identity });
   token.addGrant(
-      new VoiceGrant({
-        outgoingApplicationSid: twimlAppSid,
-        incomingAllow: true,
-      })
+    new VoiceGrant({
+      outgoingApplicationSid: twimlAppSid,
+      incomingAllow: true,
+    })
   );
 
-  res.json({ token: token.toJwt(), identity});
+  res.json({ token: token.toJwt(), identity });
 });
 
+// 🔹 Incoming Call Webhook
+app.post("/incoming", (req, res) => {
+  const twiml = new twilio.twiml.VoiceResponse();
+  const callSid = req.body.CallSid;
 
-let activeCallAccepted = false;
+  if (!activeCalls[callSid]) {
+    activeCalls[callSid] = { accepted: false };
+  }
 
-app.post('/incoming', (req, res) => {
- const twiml = new twilio.twiml.VoiceResponse();
+  if (!activeCalls[callSid].accepted) {
+    const dial = twiml.dial({ answerOnBridge: true, timeout: 30 });
+    dial.client("support_agent");
 
-    if (!activeCallAccepted) {
-        
-  const dial = twiml.dial({ answerOnBridge: true, timeout: 30 });
-  dial.client("support_agent");  // jis pe modal open karna hai
+    // Notify all clients → new call
+    io.emit("incoming_call", { callSid });
   } else {
-    // If already accepted, reject new incoming connections
     twiml.reject();
   }
+
   res.type("text/xml");
   res.send(twiml.toString());
-})
+});
 
-// API to mark call as accepted
+// 🔹 Accept Call
 app.post("/accept-call", (req, res) => {
-  activeCallAccepted = true;
-  res.json({ status: "ok" });
+  const { callSid } = req.body;
+
+  if (!activeCalls[callSid]) {
+    activeCalls[callSid] = { accepted: false };
+  }
+
+  if (activeCalls[callSid].accepted) {
+    return res.status(400).json({ error: "Already accepted" });
+  }
+
+  activeCalls[callSid].accepted = true;
+
+  // Broadcast → call accepted
+  io.emit("call_accepted", { callSid });
+
+  res.json({ status: "accepted", callSid });
 });
 
-// API to reset after disconnect
+// 🔹 End Call
 app.post("/end-call", (req, res) => {
-  activeCallAccepted = false;
-  res.json({ status: "ended" });
+  const { callSid } = req.body;
+
+  if (activeCalls[callSid]) {
+    delete activeCalls[callSid];
+  }
+
+  // Broadcast → call ended
+  io.emit("call_ended", { callSid });
+
+  res.json({ status: "ended", callSid });
 });
 
-
+// 🔹 Outgoing Call
 app.post("/voice", (req, res) => {
   const toNumber = req.body.To;
   const fromNumber = req.body.From;
 
-  console.log('Full req.body received:', req.body);  // Debug: Log everything
-  console.log('To value:', req.body.To);  // Specific log for To
-
   const twiml = new twilio.twiml.VoiceResponse();
-  const dial = twiml.dial({ callerId: fromNumber,
-    answerOnBridge: true,  // call tab tak connected rahega jab tak dusra pickup kare
-    timeout: 30
+  const dial = twiml.dial({
+    callerId: fromNumber,
+    answerOnBridge: true,
+    timeout: 30,
   });
 
-  if (toNumber) {  // Stricter check for non-empty
-    if (true) {
-      dial.number(toNumber);
-    } else {
-      dial.client(toNumber);
-    }
+  if (toNumber) {
+    dial.number(toNumber);
   } else {
-    console.error('To is empty or missing!');  // Log error
-    twiml.say("No destination provided. Please specify a number or client.");
+    twiml.say("No destination provided.");
   }
 
   res.type("text/xml");
   res.send(twiml.toString());
 });
+
+// 🔹 Logs APIs
 app.get("/calls", async (req, res) => {
-  try {
-    const calls = await client.calls.list({ limit: 20 }); // last 20 calls
-    res.json(calls);
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
+  const calls = await client.calls.list({ limit: 20 });
+  res.json(calls);
 });
 
-// ✅ Get single call detail by Call SID
-app.get("/calls/:sid", async (req, res) => {
-  try {
-    const call = await client.calls(req.params.sid).fetch();
-    res.json(call);
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
-});
-// ✅ Message Receive Webhook
-app.post("/sms", async (req, res) => {
-  console.log('Full req.body received:', req.body);
-  try {
-    const { to, from, body } = req.body;
-    console.log('to', to);
-
-
-    const message = await client.messages.create({
-      body,
-      from, // Twilio number
-      to
-    })
-    res.json({ success: true, sid: message.sid });
-  } catch (error) {
-    console.error("❌ Error sending SMS:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ✅ Message Logs API
 app.get("/messages", async (req, res) => {
-  try {
-    const messages = await client.messages.list({ limit: 20 });
-    res.json(messages);
-  } catch (err) {
-    console.error("Error fetching messages:", err);
-    res.status(500).send(err.message);
-  }
+  const messages = await client.messages.list({ limit: 20 });
+  res.json(messages);
 });
 
 app.get("/recordings", async (req, res) => {
-  try {
-    const recordings = await client.recordings.list({ limit: 20 });
-    res.json(recordings);
-  } catch (err) {
-    console.error("Error fetching recordings:", err.message);
-    res.status(500).json({ error: err.message });
-  }
+  const recordings = await client.recordings.list({ limit: 20 });
+  res.json(recordings);
 });
 
-// ✅ 2. Get single recording by SID
-app.get("/recordings/:sid", async (req, res) => {
-  try {
-    const recording = await client.recordings(req.params.sid).fetch();
-    res.json(recording);
-  } catch (err) {
-    console.error("Error fetching recording:", err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
+// 🔹 Test
 app.get("/test", (req, res) => {
   console.log("Test API hit!");
   res.send("Test API running...");
 });
 
-// Cron job (har 13 min baad chale)
+// 🔹 Cron
 cron.schedule("*/13 * * * *", () => {
-  console.log("Cron job triggered after 13 minutes");
-  // yahan par API call karwa sakte ho (axios ya fetch se)
+  console.log("⏰ Cron job triggered after 13 minutes");
 });
-// routes
 
-import userRoute from './routes/user.routes.js'
+// Routes
+import userRoute from "./routes/user.routes.js";
+app.use("/user", userRoute);
 
-app.use('/user',  userRoute)
-
-export {app}
+// ✅ Export with socket server
+export { httpServer as app };
