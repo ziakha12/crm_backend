@@ -155,6 +155,26 @@ app.get("/calls", async (req, res) => {
   res.json(calls);
 });
 
+
+app.post("/sms", async (req, res) => {
+  console.log('Full req.body received:', req.body);
+  try {
+    const { to, from, body } = req.body;
+    console.log('to', to);
+
+
+    const message = await client.messages.create({
+      body,
+      from, // Twilio number
+      to
+    })
+    res.json({ success: true, sid: message.sid });
+  } catch (error) {
+    console.error("❌ Error sending SMS:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.get("/messages", async (req, res) => {
   const messages = await client.messages.list({ limit: 20 });
   res.json(messages);
