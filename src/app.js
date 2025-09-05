@@ -160,6 +160,15 @@ app.get("/messages", async (req, res) => {
   res.json(messages);
 });
 
+app.get("/twilio/numbers", async (req, res) => {
+  try {
+    const numbers = await client.incomingPhoneNumbers.list();
+    res.json({ success: true, numbers });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.get("/recordings", async (req, res) => {
   const recordings = await client.recordings.list({ limit: 20 });
   res.json(recordings);
