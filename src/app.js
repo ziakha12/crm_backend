@@ -70,6 +70,19 @@ app.get("/token", (req, res) => {
   res.json({ token: token.toJwt(), identity });
 });
 
+
+app.post("/conversation", async (req, res) => {
+  const { uniqueName } = req.body;
+  try {
+    let conv = await client.conversations.v1.conversations(uniqueName).fetch();
+    res.json(conv);
+  } catch (err) {
+    let conv = await client.conversations.v1.conversations.create({ uniqueName });
+    res.json(conv);
+  }
+});
+
+
 // 🔹 Incoming Call Webhook
 app.post("/incoming", (req, res) => {
   const twiml = new twilio.twiml.VoiceResponse();
