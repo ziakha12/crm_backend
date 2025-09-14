@@ -70,7 +70,7 @@ app.get("/token", (req, res) => {
   res.json({ token: token.toJwt(), identity });
 });
 
-
+// 🔹 Conversation Create/Fetch
 app.post("/conversation", async (req, res) => {
   const { uniqueName } = req.body;
   try {
@@ -81,7 +81,6 @@ app.post("/conversation", async (req, res) => {
     res.json(conv);
   }
 });
-
 
 // 🔹 Incoming Call Webhook
 app.post("/incoming", (req, res) => {
@@ -162,25 +161,18 @@ app.post("/voice", (req, res) => {
   res.send(twiml.toString());
 });
 
-// 🔹 Logs APIs
-app.get("/calls", async (req, res) => {
-  const calls = await client.calls.list({ limit: 20 });
-  res.json(calls);
-});
-
-
+// 🔹 SMS Send
 app.post("/sms", async (req, res) => {
-  console.log('Full req.body received:', req.body);
+  console.log("Full req.body received:", req.body);
   try {
     const { to, from, body } = req.body;
-    console.log('to', to);
-
+    console.log("to", to);
 
     const message = await client.messages.create({
       body,
       from, // Twilio number
-      to
-    })
+      to,
+    });
     res.json({ success: true, sid: message.sid });
   } catch (error) {
     console.error("❌ Error sending SMS:", error);
@@ -188,11 +180,13 @@ app.post("/sms", async (req, res) => {
   }
 });
 
+// 🔹 Messages List
 app.get("/messages", async (req, res) => {
   const messages = await client.messages.list({ limit: 20 });
   res.json(messages);
 });
 
+// 🔹 Numbers List
 app.get("/twilio/numbers", async (req, res) => {
   try {
     const numbers = await client.incomingPhoneNumbers.list();
@@ -202,9 +196,55 @@ app.get("/twilio/numbers", async (req, res) => {
   }
 });
 
+// 🔹 Recordings List
 app.get("/recordings", async (req, res) => {
   const recordings = await client.recordings.list({ limit: 20 });
   res.json(recordings);
+});
+
+// 🔹 Call Logs with Lookup
+app.get("/calls-with-lookup", async (req, res) => {
+  try {
+    const calls = await client.calls.list({ limit: 20 });
+
+    const results = await Promise.all(
+      calls.map(async (call) => {
+        try {
+          const info = await client.lookups.v2
+            .phoneNumbers(call.from)
+            .fetch({ type: ["carrier"] });
+
+          return {
+            sid: call.sid,
+            from: call.from,
+            to: call.to,
+            status: call.status,
+            startTime: call.startTime,
+            endTime: call.endTime,
+            duration: call.duration,
+            lineType: info.carrier?.type || "unknown",
+            carrier: info.carrier?.name || "unknown",
+          };
+        } catch {
+          return {
+            sid: call.sid,
+            from: call.from,
+            to: call.to,
+            status: call.status,
+            startTime: call.startTime,
+            endTime: call.endTime,
+            duration: call.duration,
+            lineType: "lookup_failed",
+            carrier: "N/A",
+          };
+        }
+      })
+    );
+
+    res.json({ success: true, calls: results });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // 🔹 Test
@@ -218,7 +258,7 @@ cron.schedule("*/13 * * * *", () => {
   console.log("⏰ Cron job triggered after 13 minutes");
 });
 
-// Routes
+// Routes (example user routes)
 import userRoute from "./routes/user.routes.js";
 app.use("/user", userRoute);
 
