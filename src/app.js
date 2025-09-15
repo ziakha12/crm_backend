@@ -212,6 +212,7 @@ app.get("/recordings", async (req, res) => {
 });
 
 // 🔹 Call Logs with Lookup
+// 🔹 Call Logs with Lookup (Enhanced)
 app.get("/calls-with-lookup", async (req, res) => {
   try {
     const calls = await client.calls.list({ limit: 20 });
@@ -219,6 +220,7 @@ app.get("/calls-with-lookup", async (req, res) => {
     const results = await Promise.all(
       calls.map(async (call) => {
         try {
+          // Carrier lookup
           const info = await client.lookups.v2
             .phoneNumbers(call.from)
             .fetch({ type: ["carrier"] });
@@ -231,10 +233,11 @@ app.get("/calls-with-lookup", async (req, res) => {
             startTime: call.startTime,
             endTime: call.endTime,
             duration: call.duration,
-            lineType: info.carrier?.type || "unknown",
-            carrier: info.carrier?.name || "unknown",
+            lineType: info.carrier?.type || "unknown", // landline / mobile
+            carrier: info.carrier?.name || "unknown", // carrier name
           };
-        } catch {
+        } catch (err) {
+          // If lookup fails, still return basic info
           return {
             sid: call.sid,
             from: call.from,
@@ -250,8 +253,13 @@ app.get("/calls-with-lookup", async (req, res) => {
       })
     );
 
-    res.json({ success: true, calls: results });
+    res.json({
+      success: true,
+      total: results.length,
+      calls: results,
+    });
   } catch (err) {
+    console.error("❌ Error fetching calls with lookup:", err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
