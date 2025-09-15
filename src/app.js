@@ -202,7 +202,7 @@ app.post("/sms", async (req, res) => {
   }
 });
 
-app.post("/sms-webhook", async (req, res) => {
+app.post("/recived", async (req, res) => {
   const { From, To, Body } = req.body;
 
   const saved = await Message.create({
