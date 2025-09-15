@@ -85,17 +85,39 @@ app.get("/token", (req, res) => {
   res.json({ token: token.toJwt(), identity });
 });
 
-// 🔹 Conversation Create/Fetch
-app.post("/conversation", async (req, res) => {
-  const { uniqueName } = req.body;
-  try {
-    let conv = await client.conversations.v1.conversations(uniqueName).fetch();
-    res.json(conv);
-  } catch (err) {
-    let conv = await client.conversations.v1.conversations.create({ uniqueName });
-    res.json(conv);
-  }
+// 📥 Get all conversations (unique numbers)
+app.get("/conversations", async (req, res) => {
+  const conversations = await Message.aggregate([
+    {
+      $group: {
+        _id: {
+          phone: { 
+            $cond: [
+              { $eq: ["$from", process.env.TWILIO_PHONE] }, 
+              "$to", 
+              "$from"
+            ]
+          }
+        },
+        lastMessage: { $last: "$$ROOT" }
+      }
+    },
+    { $sort: { "lastMessage.dateSent": -1 } }
+  ]);
+
+  res.json(conversations);
 });
+
+// 📥 Get messages for specific number
+app.get("/messages/:phone", async (req, res) => {
+  const { phone } = req.params;
+  const msgs = await Message.find({
+    $or: [{ from: phone }, { to: phone }]
+  }).sort({ dateSent: 1 });
+
+  res.json(msgs);
+});
+
 
 // 🔹 Incoming Call Webhook
 app.post("/incoming", (req, res) => {
