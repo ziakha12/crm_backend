@@ -87,26 +87,38 @@ app.get("/token", (req, res) => {
 
 // 📥 Get all conversations (unique numbers)
 app.get("/conversations", async (req, res) => {
-  const conversations = await Message.aggregate([
-    {
-      $group: {
-        _id: {
-          phone: { 
-            $cond: [
-              { $eq: ["$from", process.env.TWILIO_PHONE] }, 
-              "$to", 
-              "$from"
-            ]
+  try {
+    const userNumber = process.env.TWILIO_PHONE // login user ka number (Twilio ka)
+    
+    const conversations = await Message.aggregate([
+      {
+        $project: {
+          from: 1,
+          to: 1,
+          body: 1,
+          status: 1,
+          dateSent: 1,
+          // counterparty number nikaal lo
+          contact: {
+            $cond: [{ $eq: ["$from", userNumber] }, "$to", "$from"]
           }
-        },
-        lastMessage: { $last: "$$ROOT" }
-      }
-    },
-    { $sort: { "lastMessage.dateSent": -1 } }
-  ]);
+        }
+      },
+      {
+        $group: {
+          _id: "$contact",            // ab hamesha doosra banda
+          lastMessage: { $last: "$$ROOT" }
+        }
+      },
+      { $sort: { "lastMessage.dateSent": -1 } }
+    ]);
 
-  res.json(conversations);
+    res.json({ success: true, data: conversations })
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message })
+  }
 });
+
 
 // 📥 Get messages for specific number
 app.get("/messages/:phone", async (req, res) => {
