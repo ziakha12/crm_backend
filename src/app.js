@@ -5,6 +5,10 @@ import twilio from "twilio";
 import cron from "node-cron";
 import { createServer } from "http";
 import { Server } from "socket.io";
+import mongoose from "mongoose";
+
+
+
 
 const app = express();
 const httpServer = createServer(app); // socket.io ke liye
@@ -25,6 +29,17 @@ app.use(
   })
 );
 app.use(cookieParser());
+
+
+const MessageSchema = new mongoose.Schema({
+  from: String,
+  to: String,
+  body: String,
+  status: String,
+  dateSent: { type: Date, default: Date.now }
+});
+
+const Message = mongoose.model("Message", MessageSchema);
 
 // Twilio creds
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -173,11 +188,31 @@ app.post("/sms", async (req, res) => {
       from, // Twilio number
       to,
     });
+
+      const saved = await Message.create({
+      from,
+      to,
+      body,
+      status: message.status
+    });
     res.json({ success: true, sid: message.sid });
   } catch (error) {
     console.error("❌ Error sending SMS:", error);
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+app.post("/sms-webhook", async (req, res) => {
+  const { From, To, Body } = req.body;
+
+  const saved = await Message.create({
+    from: From,
+    to: To,
+    body: Body,
+    status: "received"
+  });
+
+  io.emit("new_message", saved); // push to frontend
 });
 
 app.get("/calls", async (req, res) => {
@@ -222,8 +257,8 @@ app.get("/calls-with-lookup", async (req, res) => {
         try {
           // Carrier lookup
           const info = await client.lookups.v2
-            .phoneNumbers(call.from)
-            .fetch({ type: ["carrier"] });
+            .phoneNumbers(call.to)
+            .fetch({ type: ["carrier"] );
 
           return {
             sid: call.sid,
