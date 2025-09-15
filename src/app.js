@@ -180,6 +180,15 @@ app.post("/sms", async (req, res) => {
   }
 });
 
+app.get("/calls", async (req, res) => {
+  try {
+    const calls = await client.calls.list({ limit: 20 }); // last 20 calls
+    res.json(calls);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
 // 🔹 Messages List
 app.get("/messages", async (req, res) => {
   const messages = await client.messages.list({ limit: 20 });
