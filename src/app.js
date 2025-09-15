@@ -258,7 +258,7 @@ app.get("/calls-with-lookup", async (req, res) => {
           // Carrier lookup
           const info = await client.lookups.v2
             .phoneNumbers(call.to)
-            .fetch({ type: ["carrier"] );
+            .fetch({ type: ["carrier"]});
 
           return {
             sid: call.sid,
