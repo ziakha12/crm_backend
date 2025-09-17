@@ -6,7 +6,6 @@ import cron from "node-cron";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import mongoose from "mongoose";
-import {verifyJwt} from "./middlewares/auth.middleware.js";
 
 
 
@@ -70,10 +69,9 @@ const activeCalls = {}; // { CallSid: { accepted: false } }
 
 // 🔹 Token API
 app.get("/token", verifyJwt, (req, res) => {
-  const userId = req.user._id;
   const AccessToken = twilio.jwt.AccessToken;
   const VoiceGrant = AccessToken.VoiceGrant;
-  const identity = "support_agent" + userId;
+  const identity = "support_agent";
 
   const token = new AccessToken(accountSid, apiKeySid, apiKeySecret, { identity });
   token.addGrant(
@@ -134,7 +132,6 @@ app.get("/messages/:phone", async (req, res) => {
 
 // 🔹 Incoming Call Webhook
 app.post("/incoming", verifyJwt, (req, res) => {
-  const userId = req.user._id
   const twiml = new twilio.twiml.VoiceResponse();
   const callSid = req.body.CallSid;
 
@@ -144,7 +141,7 @@ app.post("/incoming", verifyJwt, (req, res) => {
 
   if (!activeCalls[callSid].accepted) {
     const dial = twiml.dial({ answerOnBridge: true, timeout: 30 });
-    dial.client("support_agent" + userId);
+    dial.client("support_agent");
 
     // Notify all clients → new call
     io.emit("incoming_call", { callSid });
