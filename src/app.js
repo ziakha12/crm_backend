@@ -68,7 +68,7 @@ io.on("connection", (socket) => {
 const activeCalls = {}; // { CallSid: { accepted: false } }
 
 // 🔹 Token API
-app.get("/token", verifyJwt, (req, res) => {
+app.get("/token", (req, res) => {
   const AccessToken = twilio.jwt.AccessToken;
   const VoiceGrant = AccessToken.VoiceGrant;
   const identity = "support_agent";
@@ -131,7 +131,7 @@ app.get("/messages/:phone", async (req, res) => {
 
 
 // 🔹 Incoming Call Webhook
-app.post("/incoming", verifyJwt, (req, res) => {
+app.post("/incoming", (req, res) => {
   const twiml = new twilio.twiml.VoiceResponse();
   const callSid = req.body.CallSid;
 
