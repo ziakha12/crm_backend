@@ -6,8 +6,7 @@ import cron from "node-cron";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import mongoose from "mongoose";
-import {verifyJWT} from "./middlewares/auth.middleware.js"
-
+import {verifyJwt} from "./middlewares/auth.middleware.js";
 
 
 
