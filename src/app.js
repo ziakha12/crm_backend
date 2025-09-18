@@ -6,7 +6,7 @@ import cron from "node-cron";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import mongoose from "mongoose";
-import User from "./models/user.model.js";
+import {User} from "./models/user.model.js";
 
 
 
