@@ -344,9 +344,9 @@ app.get("/calls", async (req, res) => {
 });
 
 // 🔹 Messages List// Get messages for a specific number
-app.get("/messages/:number", async (req, res) => {
+app.get("/messages/:phoneNumber", async (req, res) => {
   try {
-    const number = req.params.number; // e.g. +1234567890
+    const number = req.params; // e.g. +1234567890
 
     const messages = await client.messages.list({
       to: number,       // jis number par receive hue
