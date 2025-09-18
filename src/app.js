@@ -159,14 +159,14 @@ app.get("/conversations", async (req, res) => {
 
 
 // 📥 Get messages for specific number
-app.get("/messages/:phone", async (req, res) => {
-  const { phone } = req.params;
-  const msgs = await Message.find({
-    $or: [{ from: phone }, { to: phone }]
-  }).sort({ dateSent: 1 });
+// app.get("/messages/:phone", async (req, res) => {
+//   const { phone } = req.params;
+//   const msgs = await Message.find({
+//     $or: [{ from: phone }, { to: phone }]
+//   }).sort({ dateSent: 1 });
 
-  res.json(msgs);
-});
+//   res.json(msgs);
+// });
 
 
 // 🔹 Incoming Call Webhook
