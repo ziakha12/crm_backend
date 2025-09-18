@@ -110,7 +110,7 @@ app.get("/token/:userId", async (req, res) => {
   const VoiceGrant = AccessToken.VoiceGrant;
 
   const token = new AccessToken(accountSid, apiKeySid, apiKeySecret, {
-    identity: user.email,
+    identity: user.phoneNumber,
   });
 
   token.addGrant(
@@ -120,7 +120,7 @@ app.get("/token/:userId", async (req, res) => {
     })
   );
 
-  res.json({ token: token.toJwt(), identity: user.identity });
+  res.json({ token: token.toJwt(), identity: user.phoneNumber });
 });
 
 // 📥 Get all conversations (unique numbers)
@@ -199,7 +199,7 @@ app.post("/incoming", async (req, res) => {
   const callSid = req.body.CallSid;
   const toNumber = req.body.To; // jis number par call aayi
 
-  console.log(callSid, toNumber, "imcoming data)
+  console.log(callSid, toNumber, "imcoming data")
 
   if (!activeCalls[callSid]) {
     activeCalls[callSid] = { accepted: false };
@@ -220,7 +220,7 @@ app.post("/incoming", async (req, res) => {
       const dial = twiml.dial({ answerOnBridge: true, timeout: 30 });
 
       // Yahan user ki identity dal do (frontend client connect hoga isi identity se)
-      dial.client(user.email);
+      dial.client(user.phoneNumber);
 
       // Notify frontend → sirf us user ke socket ko
       io.to(user._id.toString()).emit("incoming_call", { callSid, toNumber });
