@@ -343,11 +343,23 @@ app.get("/calls", async (req, res) => {
   }
 });
 
-// 🔹 Messages List
-app.get("/messages", async (req, res) => {
-  const messages = await client.messages.list({ limit: 20 });
-  res.json(messages);
+// 🔹 Messages List// Get messages for a specific number
+app.get("/messages/:number", async (req, res) => {
+  try {
+    const number = req.params.number; // e.g. +1234567890
+
+    const messages = await client.messages.list({
+      to: number,       // jis number par receive hue
+       from: number,  // agar is number se bheje gaye hain to isko use karo
+    });
+
+    res.json(messages);
+  } catch (err) {
+    console.error("Error fetching messages:", err);
+    res.status(500).json({ error: "Failed to fetch messages" });
+  }
 });
+
 
 // 🔹 Numbers List
 app.get("/twilio/numbers", async (req, res) => {
