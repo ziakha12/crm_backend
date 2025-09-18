@@ -220,7 +220,7 @@ app.post("/incoming", async (req, res) => {
       const dial = twiml.dial({ answerOnBridge: true, timeout: 30 });
 
       // Yahan user ki identity dal do (frontend client connect hoga isi identity se)
-      dial.client(user.identity);
+      dial.client(user.email);
 
       // Notify frontend → sirf us user ke socket ko
       io.to(user._id.toString()).emit("incoming_call", { callSid, toNumber });
