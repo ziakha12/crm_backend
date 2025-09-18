@@ -199,6 +199,8 @@ app.post("/incoming", async (req, res) => {
   const callSid = req.body.CallSid;
   const toNumber = req.body.To; // jis number par call aayi
 
+  console.log(callSid, toNumber, "imcoming data)
+
   if (!activeCalls[callSid]) {
     activeCalls[callSid] = { accepted: false };
   }
