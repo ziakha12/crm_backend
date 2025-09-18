@@ -57,13 +57,27 @@ if (!accountSid || !apiKeySid || !apiKeySecret || !twimlAppSid) {
 }
 
 // ✅ Socket.IO events
+// io.on("connection", (socket) => {
+//   console.log("🔗 New client connected:", socket.id);
+
+//   socket.on("disconnect", () => {
+//     console.log("❌ Client disconnected:", socket.id);
+//   });
+// });
+
 io.on("connection", (socket) => {
-  console.log("🔗 New client connected:", socket.id);
+  console.log("🔗 New client:", socket.id);
+
+  socket.on("register_user", (userId) => {
+    socket.join(userId.toString());
+    console.log(`✅ User ${userId} registered to room`);
+  });
 
   socket.on("disconnect", () => {
     console.log("❌ Client disconnected:", socket.id);
   });
 });
+
 
 // ✅ Call states
 const activeCalls = {}; // { CallSid: { accepted: false } }
