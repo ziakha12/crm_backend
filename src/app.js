@@ -6,6 +6,7 @@ import cron from "node-cron";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import mongoose from "mongoose";
+import User from "./models/user.model.js";
 
 
 
@@ -68,12 +69,36 @@ io.on("connection", (socket) => {
 const activeCalls = {}; // { CallSid: { accepted: false } }
 
 // 🔹 Token API
-app.get("/token", (req, res) => {
+// app.get("/token", (req, res) => {
+//   const AccessToken = twilio.jwt.AccessToken;
+//   const VoiceGrant = AccessToken.VoiceGrant;
+//   const identity = "support_agent";
+
+//   const token = new AccessToken(accountSid, apiKeySid, apiKeySecret, { identity });
+//   token.addGrant(
+//     new VoiceGrant({
+//       outgoingApplicationSid: twimlAppSid,
+//       incomingAllow: true,
+//     })
+//   );
+
+//   res.json({ token: token.toJwt(), identity });
+// });
+
+
+app.get("/token/:userId", async (req, res) => {
+  const { userId } = req.params;
+  const user = await User.findById(userId);
+
+  if (!user) return res.status(404).json({ error: "User not found" });
+
   const AccessToken = twilio.jwt.AccessToken;
   const VoiceGrant = AccessToken.VoiceGrant;
-  const identity = "support_agent";
 
-  const token = new AccessToken(accountSid, apiKeySid, apiKeySecret, { identity });
+  const token = new AccessToken(accountSid, apiKeySid, apiKeySecret, {
+    identity: user.email,
+  });
+
   token.addGrant(
     new VoiceGrant({
       outgoingApplicationSid: twimlAppSid,
@@ -81,7 +106,7 @@ app.get("/token", (req, res) => {
     })
   );
 
-  res.json({ token: token.toJwt(), identity });
+  res.json({ token: token.toJwt(), identity: user.identity });
 });
 
 // 📥 Get all conversations (unique numbers)
@@ -131,27 +156,72 @@ app.get("/messages/:phone", async (req, res) => {
 
 
 // 🔹 Incoming Call Webhook
-app.post("/incoming", (req, res) => {
+// app.post("/incoming", (req, res) => {
+//   const twiml = new twilio.twiml.VoiceResponse();
+//   const callSid = req.body.CallSid;
+
+//   if (!activeCalls[callSid]) {
+//     activeCalls[callSid] = { accepted: false };
+//   }
+
+//   if (!activeCalls[callSid].accepted) {
+//     const dial = twiml.dial({ answerOnBridge: true, timeout: 30 });
+//     dial.client("support_agent");
+
+//     // Notify all clients → new call
+//     io.emit("incoming_call", { callSid });
+//   } else {
+//     twiml.reject();
+//   }
+
+//   res.type("text/xml");
+//   res.send(twiml.toString());
+// });
+
+
+
+app.post("/incoming", async (req, res) => {
   const twiml = new twilio.twiml.VoiceResponse();
   const callSid = req.body.CallSid;
+  const toNumber = req.body.To; // jis number par call aayi
 
   if (!activeCalls[callSid]) {
     activeCalls[callSid] = { accepted: false };
   }
 
-  if (!activeCalls[callSid].accepted) {
-    const dial = twiml.dial({ answerOnBridge: true, timeout: 30 });
-    dial.client("support_agent");
+  try {
+    // DB se user find karo jiska number match kare
+    const user = await User.findOne({ number: toNumber });
 
-    // Notify all clients → new call
-    io.emit("incoming_call", { callSid });
-  } else {
-    twiml.reject();
+    if (!user) {
+      console.log("❌ No user assigned to this number:", toNumber);
+      twiml.say("No agent is assigned to this number.");
+      res.type("text/xml");
+      return res.send(twiml.toString());
+    }
+
+    if (!activeCalls[callSid].accepted) {
+      const dial = twiml.dial({ answerOnBridge: true, timeout: 30 });
+
+      // Yahan user ki identity dal do (frontend client connect hoga isi identity se)
+      dial.client(user.identity);
+
+      // Notify frontend → sirf us user ke socket ko
+      io.to(user._id.toString()).emit("incoming_call", { callSid, toNumber });
+
+    } else {
+      twiml.reject();
+    }
+  } catch (err) {
+    console.error("❌ Error in incoming:", err.message);
+    twiml.say("Error processing the call.");
   }
 
   res.type("text/xml");
   res.send(twiml.toString());
 });
+
+
 
 // 🔹 Accept Call
 app.post("/accept-call", (req, res) => {
