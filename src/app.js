@@ -346,11 +346,11 @@ app.get("/calls", async (req, res) => {
 // 🔹 Messages List// Get messages for a specific number
 app.get("/messages/:phoneNumber", async (req, res) => {
   try {
-    const number = req.params; // e.g. +1234567890
+    const {phoneNumber} = req.params; // e.g. +1234567890
 
     const messages = await client.messages.list({
-      to: number,       // jis number par receive hue
-       from: number,  // agar is number se bheje gaye hain to isko use karo
+      to: phoneNumber,       // jis number par receive hue
+       from: phoneNumber,  // agar is number se bheje gaye hain to isko use karo
     });
 
     res.json(messages);
