@@ -205,7 +205,7 @@ app.post("/incoming", async (req, res) => {
 
   try {
     // DB se user find karo jiska number match kare
-    const user = await User.findOne({ number: toNumber });
+    const user = await User.findOne({ phoneNumber : toNumber });
 
     if (!user) {
       console.log("❌ No user assigned to this number:", toNumber);
