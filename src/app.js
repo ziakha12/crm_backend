@@ -346,19 +346,20 @@ app.get("/calls", async (req, res) => {
 // 🔹 Messages List// Get messages for a specific number
 app.get("/messages/:phoneNumber", async (req, res) => {
   try {
-    const {phoneNumber} = req.params; // e.g. +1234567890
+    const { phoneNumber } = req.params;
 
     const messages = await client.messages.list({
-      to: "+" + phoneNumber,       // jis number par receive hue
-       from: "+" + phoneNumber,  // agar is number se bheje gaye hain to isko use karo
+      to : phoneNumber.startsWith("+") ? phoneNumber : "+" + phoneNumber, // outbound messages
+      limit: 50,
     });
 
     res.json(messages);
   } catch (err) {
-    console.error("Error fetching messages:", err);
+    console.error("Error fetching sent messages:", err);
     res.status(500).json({ error: "Failed to fetch messages" });
   }
 });
+
 
 
 // 🔹 Numbers List
